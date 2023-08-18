@@ -1,0 +1,73 @@
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, urljoin
+import nltk
+from nltk import ne_chunk
+from nltk.tokenize import word_tokenize
+from bs4 import BeautifulSoup
+
+
+# Download NLTK resources (if not done previously)
+nltk.download('punkt')
+nltk.download('maxent_ne_chunker')
+nltk.download('words')
+nltk.download('averaged_perceptron_tagger')
+
+class WebCrawler:
+    def __init__(self, starting_url, max_depth=5):
+        self.starting_url = starting_url
+        self.max_depth = max_depth
+        self.visited_urls = set()
+    
+    def crawl(self, url, depth=0):
+        if depth > self.max_depth or url in self.visited_urls:
+            return
+        
+        print(f"Crawling: {url}")
+        self.visited_urls.add(url)
+        
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                content = response.text
+                self.process_page(content)
+                
+                soup = BeautifulSoup(content, "html.parser")
+                for link in soup.find_all("a", href=True):
+                    next_url = urljoin(url, link["href"])
+                    self.crawl(next_url, depth + 1)
+        except Exception as e:
+            print(f"Error crawling {url}: {e}")
+    
+    def process_page(self, content):
+        soup = BeautifulSoup(content, "html.parser")
+        text_content = soup.get_text()
+        processed_content = ' '.join(text_content.split())
+
+        # Download NLTK resource
+        nltk.download('averaged_perceptron_tagger')
+    
+        # Tokenize the processed content into words
+        words = word_tokenize(processed_content)
+
+        # Perform named entity recognition
+        tagged_words = nltk.pos_tag(words)
+        named_entities = ne_chunk(tagged_words)
+
+        # Extract and print named entities
+        entities = []
+        for subtree in named_entities:
+            if type(subtree) == nltk.Tree:
+                entity = " ".join([word for word, tag in subtree.leaves()])
+                entities.append(entity)
+    
+        print("Named Entities:", entities)
+
+
+
+if __name__ == "__main__":
+    starting_url = "https://example.com"
+    max_depth = 2
+    
+    crawler = WebCrawler(starting_url, max_depth)
+    crawler.crawl(starting_url)
